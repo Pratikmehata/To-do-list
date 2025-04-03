@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Task Manager </title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #7ed321;
+            --danger-color: #ff4757;
+            --background: #f5f6fa;
+            --text-color: #2d3436;
+            --dark-background: #2d3436;
+            --dark-text: #f5f6fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--background);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            color: var(--primary-color);
+        }
+
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr auto auto auto;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        input, select, button {
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .calendar-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .calendar-day {
+            padding: 1rem;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #f8f9fa;
+        }
+
+        .calendar-day:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .task-list {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .priority-low { border-left: 4px solid #7bed9f; }
+        .priority-medium { border-left: 4px solid #ffa502; }
+        .priority-high { border-left: 4px solid #ff4757; }
+
+        .dark-mode {
+            background: var(--dark-background);
+            color: var(--dark-text);
+        }
+
+        .dark-mode .input-section,
+        .dark-mode .calendar-section,
+        .dark-mode .task-list {
+            background: rgba(45, 52, 54, 0.9);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Smart Task Manager 🚀</h1>
+
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="What needs to be done?">
+            <select id="prioritySelect">
+                <option value="low">🌱 Low</option>
+                <option value="medium">⚡ Medium</option>
+                <option value="high">🔥 High</option>
+            </select>
+            <input type="date" id="taskDate">
+            <button onclick="addTask()">➕ Add Task</button>
+        </div>
+
+        <div class="calendar-section">
+            <h2>📅 Calendar View</h2>
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <div class="task-list">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <h2>📝 Tasks</h2>
+            <div id="taskList"></div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let darkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Initialize app
+        function init() {
+            renderCalendar();
+            renderTasks();
+            updateProgress();
+            document.body.classList.toggle('dark-mode', darkMode);
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const prioritySelect = document.getElementById('prioritySelect');
+            const taskDate = document.getElementById('taskDate');
+
+            if (taskInput.value.trim()) {
+                const newTask = {
+                    id: Date.now(),
+                    text: taskInput.value.trim(),
+                    priority: prioritySelect.value,
+                    date: taskDate.value,
+                    completed: false
+                };
+
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks();
+                updateProgress();
+                taskInput.value = '';
+            }
+        }
+
+        function renderTasks(filterDate) {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            const filteredTasks = filterDate 
+                ? tasks.filter(task => task.date === filterDate)
+                : tasks;
+
+            filteredTasks.forEach(task => {
+                const taskElement = document.createElement('div');
+                taskElement.className = `task-item priority-${task.priority}`;
+                taskElement.innerHTML = `
+                    <input type="checkbox" ${task.completed ? 'checked' : ''} 
+                        onchange="toggleTask(${task.id})">
+                    <span style="flex-grow: 1; text-decoration: ${task.completed ? 'line-through' : 'none'}">
+                        ${task.text}
+                    </span>
+                    <span class="task-date">📅 ${formatDate(task.date)}</span>
+                    <button onclick="deleteTask(${task.id})">🗑️</button>
+                    <button onclick="editTask(${task.id})">✏️</button>
+                `;
+                taskList.appendChild(taskElement);
+            });
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(task => 
+                task.id === id ? {...task, completed: !task.completed} : task
+            );
+            saveTasks();
+            updateProgress();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+            updateProgress();
+        }
+
+        function editTask(id) {
+            const task = tasks.find(task => task.id === id);
+            const newText = prompt('Edit task:', task.text);
+            if (newText) {
+                task.text = newText.trim();
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        function renderCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            const date = new Date();
+            const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            
+            calendarGrid.innerHTML = '';
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                dayElement.textContent = i;
+                dayElement.onclick = () => filterTasksByDate(
+                    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+                );
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+
+        function filterTasksByDate(date) {
+            renderTasks(date);
+        }
+
+        function updateProgress() {
+            const completedTasks = tasks.filter(task => task.completed).length;
+            const progress = tasks.length ? (completedTasks / tasks.length) * 100 : 0;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+        }
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', darkMode);
+        }
+
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-US', options);
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
